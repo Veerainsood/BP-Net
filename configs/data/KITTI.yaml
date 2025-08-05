@@ -23,13 +23,15 @@ trainset:
 
 testset:
   _target_: datasets.KITTI
-  mode: 'selval'
+  mode: 'test'
   RandCrop: false
-  path: ${data.path}
+  root_path: datas/kitti/testing/
+  path: datas/kitti/testing/
   height: ${data.height}
   width: ${data.width}
   mean: ${data.mean}
   std: ${data.std}
+  detpath: datas/kitti/testing/
 
 path: datas/kitti
 mul_factor: 1.0

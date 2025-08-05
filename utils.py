@@ -99,35 +99,35 @@ class Trainer(object):
             return SummaryWriter(writer_name)
 
     def init_dataset(self):
-        trainset = instantiate(self.cfg.data.trainset)
+        # trainset = instantiate(self.cfg.data.trainset)
         testset = instantiate(self.cfg.data.testset)
-        if self.ddp:
-            train_sampler = torch.utils.data.distributed.DistributedSampler(
-                trainset,
-                num_replicas=len(self.cfg.gpus),
-                rank=self.rank,
-                shuffle=True,
-            )
-            test_sampler = torch.utils.data.distributed.DistributedSampler(
-                testset,
-                num_replicas=len(self.cfg.gpus),
-                rank=self.rank,
-                shuffle=False,
-            )
-        else:
-            train_sampler = None
-            test_sampler = None
-        self.train_sampler = train_sampler
-        trainloader = torch.utils.data.DataLoader(trainset, batch_size=self.cfg.train_batch_size,
-                                                  num_workers=self.cfg.num_workers, shuffle=(train_sampler is None),
-                                                  sampler=train_sampler,
-                                                  drop_last=True, pin_memory=True)
+        # if self.ddp:
+        #     train_sampler = torch.utils.data.distributed.DistributedSampler(
+        #         trainset,
+        #         num_replicas=len(self.cfg.gpus),
+        #         rank=self.rank,
+        #         shuffle=True,
+        #     )
+        #     test_sampler = torch.utils.data.distributed.DistributedSampler(
+        #         testset,
+        #         num_replicas=len(self.cfg.gpus),
+        #         rank=self.rank,
+        #         shuffle=False,
+        #     )
+        # else:
+        #     train_sampler = None
+        #     test_sampler = None
+        # self.train_sampler = train_sampler
+        # # trainloader = torch.utils.data.DataLoader(trainset, batch_size=self.cfg.train_batch_size,
+        # #                                           num_workers=self.cfg.num_workers, shuffle=(train_sampler is None),
+        # #                                           sampler=train_sampler,
+        # #                                           drop_last=True, pin_memory=True)
         testloader = torch.utils.data.DataLoader(testset, batch_size=self.cfg.test_batch_size,
                                                  num_workers=self.cfg.num_workers, shuffle=False,
-                                                 sampler=test_sampler,
+                                                 sampler=None,
                                                  drop_last=True, pin_memory=True)
-        self.ddp_log(f'num_train = {len(trainloader)}, num_test = {len(testloader)}')
-        return trainloader, testloader
+        self.ddp_log(f'num_train = {0}, num_test = {len(testloader)}')
+        return None , testloader
 
 
     def init_net(self):

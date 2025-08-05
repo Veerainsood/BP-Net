@@ -26,7 +26,7 @@ def read_calib_file(filepath):
                 pass
 
     return data
-
+from .dataloaders.my_loader import MyLoader
 
 class KITTI(torch.utils.data.Dataset):
     """
@@ -34,7 +34,7 @@ class KITTI(torch.utils.data.Dataset):
     """
 
     def __init__(self, path='datas/kitti', mode='train', height=256, width=1216, mean=(90.9950, 96.2278, 94.3213),
-                 std=(79.2382, 80.5267, 82.1483), RandCrop=False, tp_min=50, *args, **kwargs):
+                 std=(79.2382, 80.5267, 82.1483), RandCrop=False, tp_min=50,root_path = None , *args, **kwargs):
         self.base_dir = path
         self.height = height
         self.width = width
@@ -64,15 +64,11 @@ class KITTI(torch.utils.data.Dataset):
             self.lidars = list(sorted(glob.iglob(self.lidar_path + "/*.png", recursive=True)))
             self.images = list(sorted(glob.iglob(self.image_path + "/*.png", recursive=True)))
         elif mode == 'test':
-            self.lidar_path = os.path.join(self.base_dir, 'test_depth_completion_anonymous', 'velodyne_raw')
-            self.image_path = os.path.join(self.base_dir, 'test_depth_completion_anonymous', 'image')
-            self.lidars = list(sorted(glob.iglob(self.lidar_path + "/*.png", recursive=True)))
-            self.images = list(sorted(glob.iglob(self.image_path + "/*.png", recursive=True)))
-            self.depths = self.lidars
+            self.loader = MyLoader(root_path)
         else:
             raise ValueError("Unknown mode: {}".format(mode))
-        assert (len(self.depths) == len(self.lidars))
-        self.names = [os.path.split(path)[-1] for path in self.depths]
+        # assert (len(self.depths) == len(self.lidars))
+        # self.names = [os.path.split(path)[-1] for path in self.depths]
         x = np.arange(width)
         y = np.arange(height)
         xx, yy = np.meshgrid(x, y)
@@ -80,26 +76,32 @@ class KITTI(torch.utils.data.Dataset):
         self.xy = xy
 
     def __len__(self):
-        return len(self.depths)
+        return self.loader.__len__()
 
     def __getitem__(self, index):
-        return self.get_item(index)
+        rgb, lidar, K_cam, depth = self.get_item(index) 
+        return rgb , lidar , K_cam, depth , index
 
     def get_item(self, index):
-        depth = self.pull_DEPTH(self.depths[index])
-        depth = np.expand_dims(depth, axis=2)
-        lidar = self.pull_DEPTH(self.lidars[index])
-        lidar = np.expand_dims(lidar, axis=2)
-        K_cam = self.pull_K_cam(index).astype(np.float32)
-        file_names = self.depths[index].split('/')
+        rgb, depth, K_cam= self.loader[index]
+        lidar = depth
+        # depth = self.pull_DEPTH(self.depths[index])
+        # depth = np.expand_dims(depth, axis=2)
+        # breakpoint()
+        # assert len(lidar.shape) == 2
+        # lidar = np.expand_dims(lidar, axis=2)
+        K_cam = K_cam.astype(np.float32)
+        # file_names = self.depths[index].split('/')
         if self.mode in ['train', 'val']:
-            rgb_path = os.path.join(*file_names[:-7], 'raw', file_names[-5].split('_drive')[0], file_names[-5],
-                                    file_names[-2], 'data', file_names[-1])
+            # rgb_path = os.path.join(*file_names[:-7], 'raw', file_names[-5].split('_drive')[0], file_names[-5],
+            #                         file_names[-2], 'data', file_names[-1])
+            pass
         elif self.mode in ['selval', 'test']:
-            rgb_path = self.images[index]
+            # rgb_path = self.images[index]
+            pass
         else:
             raise ValueError("Unknown mode: {}".format(self.mode))
-        rgb = self.pull_RGB(rgb_path)
+        # rgb = self.pull_RGB(rgb_path)
         rgb = rgb.astype(np.float32)
         lidar = lidar.astype(np.float32)
         depth = depth.astype(np.float32)

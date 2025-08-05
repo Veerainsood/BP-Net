@@ -11,33 +11,34 @@ from PIL import Image
 import os
 from omegaconf import OmegaConf
 from utils import *
+import vis_utils
 
-
-def test(run, mode='selval', save=False):
+def test(run, mode='test', save=True):
     dataloader = run.testloader
     net = run.net_ema.module
     net.eval()
     tops = [AverageMeter() for i in range(len(run.metric.metric_name))]
     if save:
-        dir_path = f'results/{run.cfg.name}/{mode}'
+        dir_path = f'{run.cfg.data.testset.path}'
         os.makedirs(dir_path, exist_ok=True)
     with torch.no_grad():
-        for idx, datas in enumerate(
-                tqdm(dataloader, desc="test ", dynamic_ncols=True, leave=False, disable=run.rank)):
-            datas = run.init_cuda(*datas)
-            output = net(*datas[:-1])
+        for datas in tqdm(dataloader, desc="test ", dynamic_ncols=True, leave=False, disable=run.rank):
+            # breakpoint()            
+            rgb, lidar, K_cam, depth, sample_idx = datas
+
+            # move tensors to GPU
+            rgb, lidar, K_cam, depth = run.init_cuda(rgb, lidar, K_cam, depth)
+
+            # forward pass (net expects rgb, lidar, K_cam)
+            output = net(rgb, lidar, K_cam)
             if isinstance(output, (list, tuple)):
                 output = output[-1]
-            precs = run.metric(output, datas[-1])
+            precs = run.metric(output,depth)
             for prec, top in zip(precs, tops):
                 top.update(prec.mean().detach().cpu().item())
             if save:
-                for i in range(output.shape[0]):
-                    index = idx * output.shape[0] + i
-                    file_path = os.path.join(dir_path, f'{index:010d}.png')
-                    img = (output[i, 0] * 256.0).detach().cpu().numpy().astype('uint16')
-                    Img = Image.fromarray(img)
-                    Img.save(file_path)
+                for depth_i, true_idx in zip(output, sample_idx):
+                    vis_utils.save_depth_as_points(depth_i, int(true_idx), dir_path)
     logs = ""
     for name, top in zip(run.metric.metric_name, tops):
         logs += f" {name}:{top.avg:.7f} "

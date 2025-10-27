@@ -132,23 +132,37 @@ def save_depth_as_points(depth, idx, root_path):
     calib = calibration_kitti.Calibration(file_calib)
 
     lidar = np.fromfile(str(file_velo_path), dtype=np.float32).reshape(-1, 4)
-    image = np.array(io.imread(file_image_path), dtype=np.int32)
+    org_img = io.imread(file_image_path)
+    image = np.array(org_img)
     image = image[:352, :1216]
-
     pts_rect = calib.lidar_to_rect(lidar[:, 0:3])
     fov_flag = get_fov_flag(pts_rect, image.shape, calib)
     lidar = lidar[fov_flag]
 
 
     paths = os.path.join(root_path, 'velodyne_depth')
+    painted_paths = os.path.join(root_path, 'velodyne_painted')
     if not os.path.exists(paths):
         os.makedirs(paths)
+    if not os.path.exists(painted_paths):
+        os.makedirs(painted_paths)
 
     out_path = os.path.join(paths, file_idx + '.npy')
+    out_paint_path = os.path.join(painted_paths, file_idx + '.npy')
     depth = depth.cpu().detach().numpy().reshape(352, 1216,1)
-    final_points = depth2pointsrgbp(depth, image, calib, lidar)
-    final_points = final_points.astype(np.float16)
-    np.save(out_path, final_points)
+    merged_points, new_lidar = depth2pointsrgbp(depth, image, calib, lidar)
+    merged_points = merged_points.astype(np.float16)
+    import open3d as o3d
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(merged_points[:, :3])
+    rgb = merged_points[:, 4:7] / 255.0
+    pcd.colors = o3d.utility.Vector3dVector(rgb)
+
+    o3d.visualization.draw_geometries([pcd])
+    breakpoint()
+    new_lidar = new_lidar.astype(np.float16)
+    np.save(out_path, merged_points)
+    np.save(out_paint_path, new_lidar)
 
 
 def save_depth_as_uint16png_upload(img, filename):

@@ -414,10 +414,23 @@ def depth2pointsrgbp(depth, image, calib, lidar):
     #_, new_p = to_sphere_coords(new_p)
     #new_p = voxel_sampling(new_p)
     #new_p = range_sampling_torch(new_p, new_lidar, calib)
+    
+    # below addition is an experiemnt to inculcate rgb values to points...
+    # Project LiDAR points into image for RGB painting
+    pts_rect = calib.lidar_to_rect(lidar[:, 0:3])
+    pts_img, _ = calib.rect_to_img(pts_rect) # second arg is pts_depth which we dont need
+
+    pts_img = pts_img.astype(np.int32)
+    mask = (pts_img[:, 0] >= 0) & (pts_img[:, 0] < image.shape[1]) & \
+           (pts_img[:, 1] >= 0) & (pts_img[:, 1] < image.shape[0]) # flag check to make sure that the points whose image projection goes out of frame are not accessed
+
+    # Fill RGB where projection is valid
+    import open3d as o3d
+    new_lidar[mask, 4:7] = image[pts_img[mask, 1], pts_img[mask, 0]]# since projection map inverts it..
 
     all_points = np.concatenate([new_lidar, new_p], 0)
 
-    return all_points
+    return all_points, new_lidar
 # import matplotlib.pyplot as plt
 class MyLoader():
     def __init__(self, root_path='' , *args, **kwargs):
